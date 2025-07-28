@@ -1,0 +1,23 @@
+css
+/* ตั้งค่าพื้นฐานให้กับทุกหน้า */
+body {
+  font-family: 'Kanit', sans-serif;
+  background-color: #f0f8ff; /* พื้นหลังสีฟ้าอ่อน */
+  color: #333333; /* สีตัวอักษร */
+  margin: 0;
+  padding: 20px;
+}
+
+/* ตกแต่งหัวข้อ */
+h1 {
+  color: #ffffff;
+  text-align: center;
+}
+h2 {
+  color: #ffffff;
+  text-align: center;
+}
+h3 {
+  color: #ffffff;
+  text-align: center;
+}

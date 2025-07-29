@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>เกมแยกขยะ 4 ประเภท</title>
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+  }
+  body {
+    margin: 0;
+    background: #f0f4f8;
+    font-family: 'Kanit', sans-serif;
+    overflow: hidden;
+  }
+  #gameArea {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+  .bin {
+    width: 80px;
+    height: 100px;
+    position: absolute;
+    top: 10px;
+    border-radius: 12px;
+    box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 10px;
+    font-size: 32px;
+  }
+
+  .bin.recycle {
+    left: 10%;
+    background-color: #fbff02;
+  }
+
+  .bin.wet {
+    left: 35%;
+    background-color: #4ffa00;
+  }
+
+  .bin.hazard {
+    left: 60%;
+    background-color: #fa011a;
+  }
+
+  .bin.general {
+    left: 85%;
+    background-color: #0004ff;
+  }
+
+  .bin-label {
+    font-weight: 700;
+    font-size: 16px;
+    color: #333;
+    user-select: none;
+    margin-top: 5px;
+  }
+
+  #timer, #scoreBoard {
+    position: absolute;
+    top: 10px;
+    font-size: 22px;
+    font-weight: 600;
+    color: #333;
+    user-select: none;
+  }
+  #timer { left: 10px; }
+  #scoreBoard { right: 10px; }
+
+  .trash {
+    width: 60px;
+    height: 60px;
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    border-radius: 8px;
+    box-shadow: 0 0 4px rgba(0,0,0,0.2);
+    background-color: white;
+  }
+
+  #gameOverOverlay {
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 100;
+    display: none;
+  }
+
+  #gameOverOverlay button {
+    margin-top: 20px;
+    padding: 10px 25px;
+    font-size: 20px;
+    border: none;
+    border-radius: 10px;
+    background: #40a9ff;
+    color: white;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div id="gameArea">
+    <div class="bin recycle" data-color="recycle">♻️<div class="bin-label">รีไซเคิล</div></div>
+    <div class="bin wet" data-color="wet">🍌<div class="bin-label">ขยะเปียก</div></div>
+    <div class="bin hazard" data-color="hazard">☣️<div class="bin-label">อันตราย</div></div>
+    <div class="bin general" data-color="general">🗑️<div class="bin-label">ทั่วไป</div></div>
+    <div id="timer">⏳ 30</div>
+    <div id="scoreBoard">คะแนน: 0</div>
+  </div>
+
+  <div id="gameOverOverlay">
+    <div id="finalScore"></div>
+    <button id="restartBtn">เล่นอีกครั้ง</button>
+  </div>
+
+<script>
+  const gameArea = document.getElementById('gameArea');
+  const timerEl = document.getElementById('timer');
+  const scoreBoard = document.getElementById('scoreBoard');
+  const overlay = document.getElementById('gameOverOverlay');
+  const finalScore = document.getElementById('finalScore');
+  const restartBtn = document.getElementById('restartBtn');
+  const bins = Array.from(document.querySelectorAll('.bin'));
+
+  const trashData = [
+    {emoji: '🧴', color: 'recycle'},
+    {emoji: '🧃', color: 'recycle'},
+    {emoji: '🥫', color: 'recycle'},
+    {emoji: '📦', color: 'recycle'},
+    {emoji: '🍌', color: 'wet'},
+    {emoji: '🍎', color: 'wet'},
+    {emoji: '🍉', color: 'wet'},
+    {emoji: '🍊', color: 'wet'},
+    {emoji: '☣️', color: 'hazard'},
+    {emoji: '🔋', color: 'hazard'},
+    {emoji: '💊', color: 'hazard'},
+    {emoji: '🧪', color: 'hazard'},
+    {emoji: '🧻', color: 'general'},
+    {emoji: '🪣', color: 'general'},
+    {emoji: '🪵', color: 'general'},
+    {emoji: '🧦', color: 'general'}
+  ];
+
+  let score = 0;
+  let timeLeft = 30;
+  let countdownInterval;
+  let currentTrash = null;
+
+  function randomTrash() {
+    return trashData[Math.floor(Math.random() * trashData.length)];
+  }
+
+  function createTrash() {
+    if (currentTrash) currentTrash.remove();
+
+    const trashInfo = randomTrash();
+    const trash = document.createElement('div');
+    trash.classList.add('trash');
+    trash.innerText = trashInfo.emoji;
+    trash.dataset.color = trashInfo.color;
+
+    const posX = Math.random() * (window.innerWidth - 60);
+    trash.style.left = posX + 'px';
+
+    gameArea.appendChild(trash);
+    currentTrash = trash;
+
+    let isDragging = false;
+    let startX = 0, startY = 0;
+
+    trash.addEventListener('touchstart', e => {
+      isDragging = true;
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+    });
+
+    trash.addEventListener('touchmove', e => {
+      if (!isDragging) return;
+      e.preventDefault();
+    }, { passive: false });
+
+    trash.addEventListener('touchend', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (dy < -30) {
+        throwTrash(dx, dy);
+      }
+    });
+  }
+
+  function throwTrash(dx, dy) {
+    if (!currentTrash) return;
+    const trash = currentTrash;
+    currentTrash = null;
+
+    let vx = dx / 10;
+    let vy = dy / 10;
+    let x = trash.offsetLeft;
+    let y = trash.offsetTop;
+
+    const interval = setInterval(() => {
+      x += vx;
+      y += vy;
+      vy += 1;
+
+      trash.style.left = x + 'px';
+      trash.style.top = y + 'px';
+
+      const trashRect = trash.getBoundingClientRect();
+
+      for (const bin of bins) {
+        const binRect = bin.getBoundingClientRect();
+
+        if (
+          trashRect.bottom > binRect.top &&
+          trashRect.top < binRect.bottom &&
+          trashRect.right > binRect.left &&
+          trashRect.left < binRect.right
+        ) {
+          if (trash.dataset.color === bin.dataset.color) {
+            score++;
+            scoreBoard.textContent = 'คะแนน: ' + score;
+          }
+          clearInterval(interval);
+          trash.remove();
+          createTrash();
+          return;
+        }
+      }
+
+      if (y > window.innerHeight || x < -60 || x > window.innerWidth + 60) {
+        clearInterval(interval);
+        trash.remove();
+        createTrash();
+      }
+    }, 20);
+  }
+
+  function startTimer() {
+    timeLeft = 30;
+    timerEl.textContent = '⏳ ' + timeLeft;
+    countdownInterval = setInterval(() => {
+      timeLeft--;
+      timerEl.textContent = '⏳ ' + timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function endGame() {
+    if (currentTrash) currentTrash.remove();
+    overlay.style.display = 'flex';
+    finalScore.textContent = '🎉 คะแนนสุดท้าย: ' + score;
+  }
+
+  restartBtn.addEventListener('click', () => {
+    overlay.style.display = 'none';
+    score = 0;
+    scoreBoard.textContent = 'คะแนน: 0';
+    createTrash();
+    startTimer();
+  });
+
+  createTrash();
+  startTimer();
+</script>
+</body>
+</html>
